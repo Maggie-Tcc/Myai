@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>咖啡電商加入購物車提醒 APP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --primary: #3d5a44; --accent: #d2b48c; --bg: #f9f7f2; }
+        body { background-color: var(--bg); color: #333; font-family: 'Segoe UI', sans-serif; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 1.5rem; }
+        .preview-box { background: #eef2ef; border: 1px solid #ccc; padding: 1rem; border-radius: 8px; min-height: 200px; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <header class="mb-8">
+        <h1 class="text-3xl font-bold text-[#3d5a44]">咖啡電商加入購物車提醒 APP</h1>
+        <p class="text-gray-600">用 AI 產生未結帳提醒訊息，協助提升購物車轉換率</p>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 左側：商品選擇 -->
+        <section class="space-y-4">
+            <h2 class="text-xl font-semibold">1. 選擇商品</h2>
+            <select id="productSelect" class="w-full p-2 border rounded" onchange="updateProductDisplay()">
+                <!-- JS 生成選項 -->
+            </select>
+            <div id="productDetails" class="card space-y-3 text-sm">
+                <p class="text-gray-500">請選擇商品以查看詳情</p>
+            </div>
+        </section>
+
+        <!-- 中間：情境設定 -->
+        <section class="space-y-4">
+            <h2 class="text-xl font-semibold">2. 設定顧客情境</h2>
+            <div class="card space-y-4">
+                <input type="text" id="customerName" placeholder="顧客姓名 (選填)" class="w-full p-2 border rounded">
+                <select id="timeElapsed" class="w-full p-2 border rounded">
+                    <option value="30m">未結帳 30 分鐘</option>
+                    <option value="3h">未結帳 3 小時</option>
+                    <option value="24h">未結帳 24 小時</option>
+                    <option value="48h">未結帳 48 小時</option>
+                </select>
+                <select id="channel" class="w-full p-2 border rounded">
+                    <option value="LINE">LINE</option>
+                    <option value="Email">Email</option>
+                    <option value="SMS">簡訊</option>
+                </select>
+                <button onclick="generateContent()" class="w-full bg-[#3d5a44] text-white py-2 rounded hover:bg-[#2d4033]">產生 AI 文案</button>
+            </div>
+        </section>
+
+        <!-- 右側：結果預覽 -->
+        <section class="space-y-4">
+            <h2 class="text-xl font-semibold">3. 提醒訊息預覽</h2>
+            <div id="previewArea" class="preview-box">
+                <p class="text-gray-400">請點擊產生文案後查看預覽</p>
+            </div>
+            <div id="copyButtons" class="hidden grid grid-cols-1 gap-2 mt-4">
+                <button id="copyBtn" onclick="copyContent()" class="bg-blue-600 text-white py-2 rounded text-sm font-medium transition-colors hover:bg-blue-700">複製文案</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- AI 說明 -->
+    <section class="mt-12 bg-white p-6 rounded shadow-inner">
+        <h3 class="text-lg font-bold mb-4">AI 在此流程中可以協助什麼？</h3>
+        <ul class="list-decimal ml-6 space-y-2">
+            <li>根據商品資料產生提醒文案</li>
+            <li>依照未結帳時間調整溝通語氣</li>
+            <li>整合 FAQ，降低顧客猶豫</li>
+            <li>協助行銷人員快速產生 LINE、Email、簡訊內容</li>
+        </ul>
+    </section>
+
+    <script>
+        const products = [
+            { id: 1, name: "中深焙經典配方咖啡豆", feat: "低酸、堅果香、黑巧克力尾韻", price: "NT$450", promo: "滿 999 免運；限時 9 折", delivery: "2–3 個工作天", save: "開封後建議 2–4 週內飲用", faq: "酸不酸？適合新手嗎？", tone: "親切、專業" },
+            { id: 2, name: "淺焙衣索比亞日曬咖啡豆", feat: "莓果香、花香、明亮果酸", price: "NT$580", promo: "第二件 95 折", delivery: "3–5 個工作天", save: "開封後 2–3 週內飲用", faq: "會不會太酸？適合手沖嗎？", tone: "專業、清楚" },
+            { id: 3, name: "深焙義式拿鐵專用咖啡豆", feat: "濃郁可可、焦糖苦甜", price: "NT$420", promo: "滿 2 包折 NT$80", delivery: "2–3 個工作天", save: "請密封保存", faq: "適合義式機嗎？", tone: "直接、穩定" },
+            { id: 4, name: "冰釀冷萃濾掛咖啡包", feat: "低苦感、清爽、冷泡", price: "NT$360", promo: "夏季限定 88 折", delivery: "1–2 個工作天", save: "開封後儘速使用", faq: "需要熱水嗎？", tone: "輕鬆、清爽" },
+            { id: 5, name: "掛耳綜合體驗組", feat: "淺焙、中焙、深焙組合", price: "NT$399", promo: "新客首購折 NT$50", delivery: "2–3 個工作天", save: "避免陽光直射", faq: "可以送禮嗎？", tone: "親切" },
+            { id: 6, name: "無咖啡因哥倫比亞咖啡豆", feat: "低咖啡因、焦糖甜感", price: "NT$520", promo: "會員 95 折", delivery: "3–4 個工作天", save: "開封後 2–4 週內飲用", faq: "孕婦可以喝嗎？", tone: "謹慎、清楚" },
+            { id: 7, name: "精品咖啡新手入門禮盒", feat: "含豆、濾掛、小卡", price: "NT$899", promo: "贈送品牌提袋", delivery: "3–5 個工作天", save: "陰涼處存放", faq: "新手需要磨豆機嗎？", tone: "教學型" },
+            { id: 8, name: "辦公室大包量咖啡豆", feat: "穩定中焙、多人適用", price: "NT$1,280", promo: "滿 3 包另享優惠", delivery: "2–4 個工作天", save: "分裝密封", faq: "一公斤喝多久？", tone: "效率導向" },
+            { id: 9, name: "季節限定果香配方咖啡豆", feat: "柑橘、蜂蜜、茶感", price: "NT$620", promo: "限量批次", delivery: "3–5 個工作天", save: "開封後密封", faq: "售完會補貨嗎？", tone: "精緻" },
+            { id: 10, name: "單品手沖咖啡禮盒", feat: "三款單品豆、風味卡", price: "NT$1,180", promo: "節慶免運", delivery: "5–7 個工作天", save: "分別密封", faq: "可寫祝福卡嗎？", tone: "禮貌" }
+        ];
+
+        function updateProductDisplay() {
+            const id = document.getElementById('productSelect').value;
+            const p = products.find(i => i.id == id);
+            document.getElementById('productDetails').innerHTML = `
+                <h3 class="font-bold text-lg text-[#3d5a44] mb-3">${p.name}</h3>
+                <div class="space-y-2 text-sm bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <div class="flex"><span class="w-16 font-semibold text-gray-700">特色：</span><span class="flex-1">${p.feat}</span></div>
+                    <div class="flex"><span class="w-16 font-semibold text-gray-700">價格：</span><span class="flex-1 font-medium text-gray-900">${p.price}</span></div>
+                    <div class="flex"><span class="w-16 font-semibold text-gray-700">優惠：</span><span class="flex-1 font-bold text-red-600">${p.promo}</span></div>
+                    <div class="flex"><span class="w-16 font-semibold text-gray-700">配送：</span><span class="flex-1">${p.delivery}</span></div>
+                    <div class="flex"><span class="w-16 font-semibold text-gray-700">保存：</span><span class="flex-1">${p.save}</span></div>
+                    <div class="flex"><span class="w-16 font-semibold text-gray-700">FAQ：</span><span class="flex-1 text-gray-500 italic">${p.faq}</span></div>
+                    <div class="flex"><span class="w-16 font-semibold text-gray-700">語氣：</span><span class="flex-1 text-[#3d5a44] bg-[#eef2ef] px-2 py-0.5 rounded text-xs inline-block w-max">${p.tone}</span></div>
+                </div>
+            `;
+        }
+
+        function generateContent() {
+            const p = products.find(i => i.id == document.getElementById('productSelect').value);
+            const time = document.getElementById('timeElapsed').value;
+            const channel = document.getElementById('channel').value;
+            const name = document.getElementById('customerName').value || "咖啡愛好者";
+            
+            let subject = "";
+            let body = "";
+
+            // 根據不同時間設定不同文案策略，並帶入詳細商品資訊
+            if (time === '30m') {
+                subject = `☕ 您有一份專屬咖啡尚未結帳喔！`;
+                body = `Hi ${name}，\n\n我們注意到您的購物車中還有【${p.name}】尚未結帳。\n\n這款咖啡目前人氣很高，我們已經為您保留了一會兒，有需要隨時可以點擊下方連結回來完成結帳喔！\n\n期待為您準備這份美味的咖啡。`;
+            } else if (time === '3h') {
+                subject = `☕ 還在猶豫嗎？【${p.name}】的專屬特色報您知`;
+                body = `Hi ${name}，\n\n還在考慮【${p.name}】嗎？\n它主打「${p.feat}」，非常適合您的日常品飲。\n\n針對您的疑問：「${p.faq}」我們客服團隊隨時準備為您解答。只要完成結帳，預計 ${p.delivery} 就能為您送到家囉！`;
+            } else if (time === '24h') {
+                subject = `🎁 專屬優惠提醒！您的【${p.name}】正等著您`;
+                body = `Hi ${name}，\n\n告訴您一個好消息！\n您購物車內的【${p.name}】目前享有「${p.promo}」的專屬優惠。\n\n千萬別錯過這個好機會，${p.save}，讓您隨時享受最佳風味。趕快點擊連結帶它回家吧！`;
+            } else if (time === '48h') {
+                subject = `👋 最後提醒：您的【${p.name}】還在購物車裡喔`;
+                body = `Hi ${name}，\n\n這是最後一次提醒您，您的【${p.name}】還在購物車裡等著您。提醒您，這款咖啡目前的配送時間為「${p.delivery}」。\n如果您覺得目前暫時不需要，也完全沒問題！若有任何咖啡挑選上的問題，隨時歡迎與我們聯繫。\n\n祝您有美好的一天！`;
+            }
+
+            const previewArea = document.getElementById('previewArea');
+            
+            // 根據渠道渲染不同的預覽畫面
+            if (channel === 'LINE') {
+                previewArea.innerHTML = `
+                    <div class="bg-[#86b81b] p-3 rounded-xl text-white max-w-[85%] mx-auto mb-2 text-sm leading-relaxed shadow-sm relative">
+                        <!-- LINE 對話泡泡的小尾巴 -->
+                        <div class="absolute w-3 h-3 bg-[#86b81b] rotate-45 -right-1 top-4"></div>
+                        ${body.replace(/\n/g, '<br>')}
+                    </div>
+                    <div class="text-center mt-3">
+                        <button class="bg-white text-gray-800 text-xs font-bold px-4 py-2 rounded-full shadow border hover:bg-gray-50 transition">前往購物車 🛒</button>
+                    </div>
+                `;
+                previewArea.dataset.copyText = body;
+            } else if (channel === 'Email') {
+                previewArea.innerHTML = `
+                    <div class="bg-white border rounded-lg shadow-sm p-4 max-w-full mx-auto">
+                        <div class="border-b pb-3 mb-3">
+                            <div class="text-xs text-gray-500 mb-1">主旨：</div>
+                            <div class="font-bold text-gray-800 text-lg">${subject}</div>
+                        </div>
+                        <div class="text-gray-700 text-sm leading-relaxed mb-6">
+                            ${body.replace(/\n/g, '<br>')}
+                        </div>
+                        <div class="text-center">
+                            <button class="bg-[#3d5a44] text-white text-sm font-bold px-6 py-2.5 rounded hover:bg-[#2d4033] transition">返回購物車結帳</button>
+                        </div>
+                    </div>
+                `;
+                previewArea.dataset.copyText = `主旨：${subject}\n\n${body}`;
+            } else if (channel === 'SMS') {
+                // 簡訊需精簡並帶入關鍵資訊
+                let smsText = `【BeanCraft】Hi ${name}，您的「${p.name}」還在購物車。`;
+                if(time === '24h') smsText += `目前享有${p.promo}，`;
+                else if(time === '3h') smsText += `此款${p.feat}，`;
+                smsText += `快回來結帳吧！ https://bit.ly/cart`;
+
+                previewArea.innerHTML = `
+                    <div class="bg-[#e5e5ea] p-4 rounded-2xl max-w-[80%] mx-auto shadow-sm text-black text-sm relative">
+                        <!-- iMessage 泡泡小尾巴 -->
+                        <div class="absolute w-4 h-4 bg-[#e5e5ea] bottom-0 -left-1 rounded-br-full" style="clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translate(-5px, 2px);"></div>
+                        ${smsText}
+                    </div>
+                `;
+                previewArea.dataset.copyText = smsText;
+            }
+
+            document.getElementById('copyButtons').classList.remove('hidden');
+        }
+
+        function copyContent() {
+            const text = document.getElementById('previewArea').dataset.copyText;
+            
+            // 建立暫存的 textarea 來執行複製，避免 iFrame 內的 clipboard API 限制
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = text;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+            
+            // 按鈕視覺回饋
+            const btn = document.getElementById('copyBtn');
+            const originalText = btn.innerText;
+            btn.innerText = '✅ 已複製文案！';
+            btn.classList.replace('bg-blue-600', 'bg-green-600');
+            btn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
+            
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.classList.replace('bg-green-600', 'bg-blue-600');
+                btn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
+            }, 2000);
+        }
+
+        // 初始化選項
+        const sel = document.getElementById('productSelect');
+        products.forEach(p => sel.innerHTML += `<option value="${p.id}">${p.name}</option>`);
+        updateProductDisplay();
+    </script>
+</body>
+</html>
